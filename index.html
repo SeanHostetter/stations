@@ -203,6 +203,7 @@
 				// render();
 				
 				removeEntities(orbitalsLN);
+				removeEntities(orbitalsChldStns);
 			} );
 
 			const folder = gui.addFolder( 'Bloom Parameters' );
@@ -331,21 +332,25 @@
 			//-----------------------------------------------------------------GAME LOOP
 
 			var orbitalsLN = [];
+			var orbitalsChldStns = [];
 
 			function genOrbital( object ){
 				removeEntities(orbitalsLN);
+				removeEntities(orbitalsChldStns);
 				//var geometry;
 				var orbitalGeo = [];
 				var radius;
 				for(let i = 0; i < (Math.random()*2)+1; i++){
 					radius = (Math.random()) + i + 2*object.scale.x;
 					var geometry = new THREE.RingGeometry( radius, radius, 64, 1, 0, (Math.PI*2) );
+					geometry.userData.rad = radius;
+					
 					orbitalGeo.push(geometry);
 				}
 				
 				for(let i = 0; i < orbitalGeo.length; i++){
-					orbitalGeo[i].rotateX(Math.PI/2);// + (Math.random()*0.1)-0.1);
-				
+					orbitalGeo[i].rotateX(Math.PI/2);
+					
 					const wireframe = new THREE.WireframeGeometry( orbitalGeo[i] );
 
 					const line = new THREE.LineSegments( wireframe );
@@ -354,14 +359,39 @@
 					line.material.transparent = true;
 
 					line.position.set(object.position.x, object.position.y, object.position.z);
-					line.name = "line";
-
+					line.name = "line_" + i;
+					
 					orbitalsLN.push(line);
+					//console.log(orbitalGeo[i].userData.rad);
+					line.userData.rad = orbitalGeo[i].userData.rad;
+					orbitalChildStation(line);
 
 					scene.add(line);
 				}
 
 			}
+
+			function orbitalChildStation(object){
+
+				const geometry = new THREE.SphereGeometry(.1, 32, 16);
+				const material = new THREE.MeshBasicMaterial( { color: 0xFFFFF } );
+				const sphere = new THREE.Mesh( geometry, material );
+				sphere.position.x = object.position.x + object.userData.rad;
+				sphere.position.y = object.position.y;
+				sphere.position.z = object.position.z;
+				sphere.name = "station";
+				orbitalsChldStns.push(sphere);
+
+				//console.log(object.userdata.rad);
+
+				scene.add(sphere);
+			}
+
+			// function orbitalChildStations(object){
+			// 	for(let i = 0; i < object.length; i++){
+			// 		orbitalChildStation(object[i], i);
+			// 	}
+			// }
 
 			function removeEntity(object) {
 				var selectedObject = scene.getObjectByName(object.name);
@@ -410,7 +440,7 @@
 				scene.traverse( disposeMaterial );
 				scene.children.length = 0;
 
-				const geometry = new THREE.IcosahedronGeometry( 1, 15 );
+				const geometry = new THREE.IcosahedronGeometry( 1, 5 );
 
 				var size = 500;
 
