@@ -60,6 +60,8 @@
 			var pn = new Perlin(420);
 			var starsList = [];
 			var conLineArray = [];
+			var orbitalsLN = [];
+			var orbitalsChldStns = [];
 
 			import * as THREE from 'three';
 			import { Clock } from 'three';
@@ -239,7 +241,6 @@
 			setupScene();
 
 			//STAR CLICKED---------------------------------------------------------------------
-
 			function onPointerDown( event ) {
 
 				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
@@ -261,12 +262,13 @@
 						cameraTarget.set(object.position.x+10, object.position.y+10, object.position.z+10);
 
 						genOrbital(object);
-						console.log(camera.position)
+						//console.log(camera.position)
 
 						render();
+					} else if (object.name.includes("line")){
+						console.log(object.name);
 					}
 				}
-
 			}
 			//---------------------------------------------------------------------STAR CLICKED
 
@@ -290,24 +292,37 @@
 				vector.unproject(camera);
 				var ray = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
 				var intersects = ray.intersectObjects(scene.children);
+
 				if (intersects.length > 0) {
 					// if the closest object intersected is not the currently stored intersection object
 					if (intersects[0].object != INTERSECTED) {
-					// restore previous intersection object (if it exists) to its original color
-					if (INTERSECTED)
-						INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
-					// store reference to closest object as current intersection object
-					INTERSECTED = intersects[0].object;
-					// store color of closest object (for later restoration)
-					INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
-					// set a new color for closest object
-					INTERSECTED.material.color.setHex(0x303000);
+						// restore previous intersection object (if it exists) to its original color
+						if (INTERSECTED){
+							INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
+						}
+							
+						// store reference to closest object as current intersection object
+						INTERSECTED = intersects[0].object;
+						// store color of closest object (for later restoration)
+						INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
+						// set a new color for closest object
+						INTERSECTED.material.color.setHex(0x303000);
+
+						if(INTERSECTED.userData.station){
+							INTERSECTED.userData.station.material.color.setHex(0x303000);
+						}
 					}
 				} else // there are no intersections
 				{
 					// restore previous intersection object (if it exists) to its original color
-					if (INTERSECTED)
-					INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
+					if (INTERSECTED){
+						INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
+
+						if(INTERSECTED.userData.station){
+							INTERSECTED.userData.station.material.color.setHex(0xFFFFFF);
+						}
+					}
+					
 					// remove previous intersection object reference
 					//     by setting current intersection object to "nothing"
 					INTERSECTED = null;
@@ -320,6 +335,9 @@
 			function animate() {
 				
 				starSizeLerp();
+				if(orbitalsChldStns && orbitalsChldStns.length){
+					transformStation(orbitalsChldStns);
+				}
 
 				camera.position.lerp(cameraTarget, 0.1);
 				requestAnimationFrame( animate );
@@ -331,8 +349,7 @@
 			}
 			//-----------------------------------------------------------------GAME LOOP
 
-			var orbitalsLN = [];
-			var orbitalsChldStns = [];
+			
 
 			function genOrbital( object ){
 				removeEntities(orbitalsLN);
@@ -368,30 +385,44 @@
 
 					scene.add(line);
 				}
-
 			}
 
 			function orbitalChildStation(object){
-
-				const geometry = new THREE.SphereGeometry(.1, 32, 16);
-				const material = new THREE.MeshBasicMaterial( { color: 0xFFFFF } );
+				const geometry = new THREE.SphereGeometry(.08, 32, 16);
+				const material = new THREE.MeshBasicMaterial( { color: 0xFFFFFF } );
 				const sphere = new THREE.Mesh( geometry, material );
-				sphere.position.x = object.position.x + object.userData.rad;
+				var x0 = object.userData.rad
+				var z0 = 0;
+				var theta = Math.random() * 2 * Math.PI;
+				sphere.position.x = object.position.x + (x0*Math.cos(theta) - z0*Math.sin(theta));
 				sphere.position.y = object.position.y;
-				sphere.position.z = object.position.z;
+				sphere.position.z = object.position.z + (x0*Math.sin(theta) + z0*Math.cos(theta));
+				
 				sphere.name = "station";
+				sphere.userData.rad = object.userData.rad;
+				sphere.userData.origin = object.position;
+				sphere.userData.theta = (Math.PI) / (sphere.userData.rad * 1000);
+
 				orbitalsChldStns.push(sphere);
 
-				//console.log(object.userdata.rad);
+				object.userData.station = sphere;
 
 				scene.add(sphere);
 			}
+			
+			function transformStation(object){
+				for(let i = 0; i < object.length; i++){
+					var theta = object[i].userData.theta;
 
-			// function orbitalChildStations(object){
-			// 	for(let i = 0; i < object.length; i++){
-			// 		orbitalChildStation(object[i], i);
-			// 	}
-			// }
+					var x0 = object[i].position.x - object[i].userData.origin.x;
+					var z0 = object[i].position.z - object[i].userData.origin.z;
+
+					var x = object[i].userData.origin.x + (x0*Math.cos(theta) - z0*Math.sin(theta));
+					var z = object[i].userData.origin.z + (x0*Math.sin(theta) + z0*Math.cos(theta));
+
+					object[i].position.set(x, object[i].position.y, z);
+				}
+			}
 
 			function removeEntity(object) {
 				var selectedObject = scene.getObjectByName(object.name);
